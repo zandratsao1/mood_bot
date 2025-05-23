@@ -15,25 +15,34 @@ creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-# ✅ 打开共享的 Google Sheet（确保表名和共享邮箱正确）
+# ✅ 打开共享的 Google Sheet
 sheet = client.open("Mood Bot").sheet1
 df = get_as_dataframe(sheet).dropna(how='all')
+
+# 预览所有 sheet（调试用）
+# for s in client.openall():
+#     st.write("Found sheet:", s.title)
 
 # 数据处理
 df.columns = ["timestamp", "mood", "note"]
 df["timestamp"] = pd.to_datetime(df["timestamp"])
-
-# 只显示今天的数据
-today = pd.Timestamp.now().normalize()
-df_today = df[df["timestamp"] >= today]
+df = df.sort_values(by="timestamp")
 
 # 页面显示
-st.title("🧠 Mood of the Queue")
+st.title("🧠 Mood Tracker Dashboard 🎉")
 
-if not df_today.empty:
-    mood_counts = df_today["mood"].value_counts().reset_index()
-    mood_counts.columns = ["mood", "count"]
-    fig = px.bar(mood_counts, x="mood", y="count", color="mood", title="Today's Mood Breakdown")
-    st.plotly_chart(fig)
-else:
-    st.info("No moods logged today yet.")
+# 可视化 1：心情趋势图（历史全部）
+st.subheader("Mood Trend Over Time 📈")
+fig1 = px.line(df, x="timestamp", y="mood", title="Mood Over Time", markers=True)
+st.plotly_chart(fig1)
+
+# 可视化 2：心情分布柱状图（历史总计）
+st.subheader("Overall Mood Frequency 📊")
+mood_counts_all = df["mood"].value_counts().reset_index()
+mood_counts_all.columns = ["mood", "count"]
+fig2 = px.bar(mood_counts_all, x="mood", y="count", color="mood", title="All-Time Mood Breakdown")
+st.plotly_chart(fig2)
+
+# 可选：显示最近几条日志
+st.subheader("Recent Mood Logs 📝")
+st.dataframe(df.tail(10))
